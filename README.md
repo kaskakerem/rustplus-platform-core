@@ -2,7 +2,7 @@
 
 TypeScript ile sıfırdan yazılmış, hafif, kararlı ve tamamen tip güvenli **Rust+ Companion** kütüphanesi.
 
-3. parti kütüphanelere bağımlılığı olmayan, Facepunch'ın resmi Companion protokolünü (Protobuf + WebSocket) doğrudan konuşan çekirdek (core) SDK paketidir.
+Facepunch'ın resmi Companion protokolünü Protobuf ve WebSocket üzerinden doğrudan konuşan çekirdek SDK paketidir.
 
 ---
 
@@ -24,6 +24,12 @@ TypeScript ile sıfırdan yazılmış, hafif, kararlı ve tamamen tip güvenli *
 pnpm add @rustplus-platform/core
 # veya
 npm install @rustplus-platform/core
+```
+
+FCM pairing özelliğini kullanacaksanız isteğe bağlı alıcı paketini ayrıca kurun:
+
+```bash
+npm install @liamcottle/push-receiver
 ```
 
 ---
@@ -99,9 +105,16 @@ SDK'yı daha detaylı incelemek için `examples/` klasörü altındaki numaralan
 
 SDK, ağ gecikmesi (ping latency), paket kaybı (packet loss) ve eşzamanlı 100 istek yük testleri dahil olmak üzere kapsamlı bir test süiti ile korunmaktadır.
 
-Testleri çalıştırmak için:
+Derleme, testler ve dağıtım paketi doğrulamasını birlikte çalıştırmak için:
+
 ```bash
-pnpm test
+npm run check
+```
+
+Coverage raporu oluşturmak için:
+
+```bash
+npm run test:coverage
 ```
 
 ---

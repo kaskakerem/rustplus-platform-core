@@ -51,7 +51,7 @@ async function run() {
       console.log('⏳ Klan sohbet geçmişi sorgulanıyor...');
       const chat = await client.getClanChat();
       console.log('\n--- KLAN SOHBET GEÇMİŞİ ---');
-      chat.messages.slice(-3).forEach((msg: any) => {
+      chat.messages.slice(-3).forEach((msg) => {
         console.log(`[${msg.name}]: ${msg.message}`);
       });
       console.log('---------------------------\n');

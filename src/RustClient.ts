@@ -35,7 +35,22 @@
  */
 
 import { EventEmitter } from 'events';
-import { RustClientOptions, ConnectionState } from './types';
+import {
+  RustClientOptions,
+  ConnectionState,
+  ServerInfo,
+  GameTime,
+  MapData,
+  TeamInfo,
+  TeamChat,
+  MapMarkers,
+  EntityInfo,
+  ClanInfoResponse,
+  ClanChat,
+  CameraInfo,
+  AppResponse,
+  RustClientEvents,
+} from './types';
 import { Config } from './config/Config';
 import { VersionProvider } from './config/VersionProvider';
 import { Connection } from './Connection';
@@ -44,6 +59,10 @@ import { RequestManager } from './RequestManager';
 import { RateLimiter } from './RateLimiter';
 import { EventManager } from './events/EventManager';
 
+type RequiredResponse<K extends keyof AppResponse> = AppResponse & {
+  [P in K]-?: NonNullable<AppResponse[P]>;
+};
+
 /**
  * Rust+ sunucusu ile tüm etkileşimleri yöneten ana istemci sınıfı.
  * 
@@ -51,6 +70,11 @@ import { EventManager } from './events/EventManager';
  * Promise tabanlı — tüm komutlar async/await ile kullanılır.
  */
 export class RustClient extends EventEmitter {
+  public on<K extends keyof RustClientEvents>(eventName: K, listener: RustClientEvents[K]): this;
+  public on(eventName: string | symbol, listener: (...args: any[]) => void): this {
+    return super.on(eventName, listener);
+  }
+
   /** SDK yapılandırması */
   private config: Config;
   /** Facepunch sürüm sağlayıcısı */
@@ -270,8 +294,8 @@ export class RustClient extends EventEmitter {
    * console.log(`Harita boyutu: ${info.mapSize}`);
    * ```
    */
-  public async getInfo(timeout?: number): Promise<any> {
-    const response = await this.requestManager.sendRequest(
+  public async getInfo(timeout?: number): Promise<ServerInfo> {
+    const response = await this.requestManager.sendRequest<RequiredResponse<'info'>>(
       { getInfo: {} },
       'getInfo',
       timeout
@@ -293,8 +317,8 @@ export class RustClient extends EventEmitter {
    * console.log(`Gündoğumu: ${time.sunrise}, Günbatımı: ${time.sunset}`);
    * ```
    */
-  public async getTime(timeout?: number): Promise<any> {
-    const response = await this.requestManager.sendRequest(
+  public async getTime(timeout?: number): Promise<GameTime> {
+    const response = await this.requestManager.sendRequest<RequiredResponse<'time'>>(
       { getTime: {} },
       'getTime',
       timeout
@@ -318,8 +342,8 @@ export class RustClient extends EventEmitter {
    * // map.jpgImage -> Buffer olarak harita görseli
    * ```
    */
-  public async getMap(timeout: number = 30000): Promise<any> {
-    const response = await this.requestManager.sendRequest(
+  public async getMap(timeout: number = 30000): Promise<MapData> {
+    const response = await this.requestManager.sendRequest<RequiredResponse<'map'>>(
       { getMap: {} },
       'getMap',
       timeout
@@ -342,8 +366,8 @@ export class RustClient extends EventEmitter {
    * }
    * ```
    */
-  public async getTeamInfo(timeout?: number): Promise<any> {
-    const response = await this.requestManager.sendRequest(
+  public async getTeamInfo(timeout?: number): Promise<TeamInfo> {
+    const response = await this.requestManager.sendRequest<RequiredResponse<'teamInfo'>>(
       { getTeamInfo: {} },
       'getTeamInfo',
       timeout
@@ -365,8 +389,8 @@ export class RustClient extends EventEmitter {
    * }
    * ```
    */
-  public async getTeamChat(timeout?: number): Promise<any> {
-    const response = await this.requestManager.sendRequest(
+  public async getTeamChat(timeout?: number): Promise<TeamChat> {
+    const response = await this.requestManager.sendRequest<RequiredResponse<'teamChat'>>(
       { getTeamChat: {} },
       'getTeamChat',
       timeout
@@ -389,8 +413,8 @@ export class RustClient extends EventEmitter {
    * }
    * ```
    */
-  public async getMapMarkers(timeout?: number): Promise<any> {
-    const response = await this.requestManager.sendRequest(
+  public async getMapMarkers(timeout?: number): Promise<MapMarkers> {
+    const response = await this.requestManager.sendRequest<RequiredResponse<'mapMarkers'>>(
       { getMapMarkers: {} },
       'getMapMarkers',
       timeout
@@ -415,8 +439,8 @@ export class RustClient extends EventEmitter {
    * console.log(`Tür: ${entity.type}, Değer: ${entity.payload.value}`);
    * ```
    */
-  public async getEntityInfo(entityId: number, timeout?: number): Promise<any> {
-    const response = await this.requestManager.sendRequest(
+  public async getEntityInfo(entityId: number, timeout?: number): Promise<EntityInfo> {
+    const response = await this.requestManager.sendRequest<RequiredResponse<'entityInfo'>>(
       { entityId, getEntityInfo: {} },
       'getEntityInfo',
       timeout
@@ -439,7 +463,7 @@ export class RustClient extends EventEmitter {
    * await client.setEntityValue(12345, false);
    * ```
    */
-  public async setEntityValue(entityId: number, value: boolean, timeout?: number): Promise<any> {
+  public async setEntityValue(entityId: number, value: boolean, timeout?: number): Promise<AppResponse> {
     const response = await this.requestManager.sendRequest(
       { entityId, setEntityValue: { value } },
       'setEntityValue',
@@ -465,7 +489,7 @@ export class RustClient extends EventEmitter {
    * await client.sendTeamMessage('Merhaba takım!');
    * ```
    */
-  public async sendTeamMessage(message: string, timeout?: number): Promise<any> {
+  public async sendTeamMessage(message: string, timeout?: number): Promise<AppResponse> {
     const response = await this.requestManager.sendRequest(
       { sendTeamMessage: { message } },
       'sendTeamMessage',
@@ -494,7 +518,7 @@ export class RustClient extends EventEmitter {
    * });
    * ```
    */
-  public async subscribe(entityId: number, timeout?: number): Promise<any> {
+  public async subscribe(entityId: number, timeout?: number): Promise<AppResponse> {
     const response = await this.requestManager.sendRequest(
       { entityId, setSubscription: { value: true } },
       'setSubscription',
@@ -509,7 +533,7 @@ export class RustClient extends EventEmitter {
    * @param entityId Entity ID değeri
    * @param timeout Zaman aşımı (ms), varsayılan: 10000
    */
-  public async unsubscribe(entityId: number, timeout?: number): Promise<any> {
+  public async unsubscribe(entityId: number, timeout?: number): Promise<AppResponse> {
     const response = await this.requestManager.sendRequest(
       { entityId, setSubscription: { value: false } },
       'setSubscription',
@@ -528,7 +552,7 @@ export class RustClient extends EventEmitter {
    * @param steamId Lider yapılacak oyuncunun Steam ID'si
    * @param timeout Zaman aşımı (ms), varsayılan: 10000
    */
-  public async promoteToLeader(steamId: string, timeout?: number): Promise<any> {
+  public async promoteToLeader(steamId: string, timeout?: number): Promise<AppResponse> {
     const response = await this.requestManager.sendRequest(
       { promoteToLeader: { steamId } },
       'promoteToLeader',
@@ -547,8 +571,8 @@ export class RustClient extends EventEmitter {
    * @param timeout Zaman aşımı (ms), varsayılan: 10000
    * @returns AppClanInfo nesnesi
    */
-  public async getClanInfo(timeout?: number): Promise<any> {
-    const response = await this.requestManager.sendRequest(
+  public async getClanInfo(timeout?: number): Promise<ClanInfoResponse> {
+    const response = await this.requestManager.sendRequest<RequiredResponse<'clanInfo'>>(
       { getClanInfo: {} },
       'getClanInfo',
       timeout
@@ -562,8 +586,8 @@ export class RustClient extends EventEmitter {
    * @param timeout Zaman aşımı (ms), varsayılan: 10000
    * @returns AppClanChat nesnesi
    */
-  public async getClanChat(timeout?: number): Promise<any> {
-    const response = await this.requestManager.sendRequest(
+  public async getClanChat(timeout?: number): Promise<ClanChat> {
+    const response = await this.requestManager.sendRequest<RequiredResponse<'clanChat'>>(
       { getClanChat: {} },
       'getClanChat',
       timeout
@@ -577,7 +601,7 @@ export class RustClient extends EventEmitter {
    * @param message Gönderilecek mesaj
    * @param timeout Zaman aşımı (ms), varsayılan: 10000
    */
-  public async sendClanMessage(message: string, timeout?: number): Promise<any> {
+  public async sendClanMessage(message: string, timeout?: number): Promise<AppResponse> {
     const response = await this.requestManager.sendRequest(
       { sendClanMessage: { message } },
       'sendClanMessage',
@@ -592,7 +616,7 @@ export class RustClient extends EventEmitter {
    * @param message Yeni MOTD metni
    * @param timeout Zaman aşımı (ms), varsayılan: 10000
    */
-  public async setClanMotd(message: string, timeout?: number): Promise<any> {
+  public async setClanMotd(message: string, timeout?: number): Promise<AppResponse> {
     const response = await this.requestManager.sendRequest(
       { setClanMotd: { message } },
       'setClanMotd',
@@ -623,8 +647,8 @@ export class RustClient extends EventEmitter {
    * });
    * ```
    */
-  public async subscribeToCamera(cameraId: string, timeout?: number): Promise<any> {
-    const response = await this.requestManager.sendRequest(
+  public async subscribeToCamera(cameraId: string, timeout?: number): Promise<CameraInfo> {
+    const response = await this.requestManager.sendRequest<RequiredResponse<'cameraSubscribeInfo'>>(
       { cameraSubscribe: { cameraId } },
       'cameraSubscribe',
       timeout
@@ -637,7 +661,7 @@ export class RustClient extends EventEmitter {
    * 
    * @param timeout Zaman aşımı (ms), varsayılan: 10000
    */
-  public async unsubscribeFromCamera(timeout?: number): Promise<any> {
+  public async unsubscribeFromCamera(timeout?: number): Promise<AppResponse> {
     const response = await this.requestManager.sendRequest(
       { cameraUnsubscribe: {} },
       'cameraUnsubscribe',
@@ -654,7 +678,7 @@ export class RustClient extends EventEmitter {
    * @param mouseDeltaY Fare Y delta hareketi
    * @param timeout Zaman aşımı (ms), varsayılan: 10000
    */
-  public async sendCameraInput(buttons: number, mouseDeltaX: number, mouseDeltaY: number, timeout?: number): Promise<any> {
+  public async sendCameraInput(buttons: number, mouseDeltaX: number, mouseDeltaY: number, timeout?: number): Promise<AppResponse> {
     const response = await this.requestManager.sendRequest(
       { cameraInput: { buttons, mouseDelta: { x: mouseDeltaX, y: mouseDeltaY } } },
       'cameraInput',
@@ -725,7 +749,7 @@ export class RustClient extends EventEmitter {
    * @param entityId Şalter entity ID'si
    * @param timeout Zaman aşımı (ms)
    */
-  public async turnSmartSwitchOn(entityId: number, timeout?: number): Promise<any> {
+  public async turnSmartSwitchOn(entityId: number, timeout?: number): Promise<AppResponse> {
     return this.setEntityValue(entityId, true, timeout);
   }
 
@@ -735,7 +759,7 @@ export class RustClient extends EventEmitter {
    * @param entityId Şalter entity ID'si
    * @param timeout Zaman aşımı (ms)
    */
-  public async turnSmartSwitchOff(entityId: number, timeout?: number): Promise<any> {
+  public async turnSmartSwitchOff(entityId: number, timeout?: number): Promise<AppResponse> {
     return this.setEntityValue(entityId, false, timeout);
   }
 
@@ -745,10 +769,11 @@ export class RustClient extends EventEmitter {
    * @param response Kontrol edilecek yanıt
    * @returns Geçerliyse true
    */
-  public isResponseValid(response: any): boolean {
+  public isResponseValid(response: unknown): boolean {
     if (response === undefined || response === null) return false;
-    if (response.error) return false;
-    if (typeof response === 'object' && Object.keys(response).length === 0) return false;
+    if (typeof response !== 'object') return true;
+    if ('error' in response && response.error) return false;
+    if (Object.keys(response).length === 0) return false;
     return true;
   }
 }

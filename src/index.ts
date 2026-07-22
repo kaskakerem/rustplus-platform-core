@@ -65,9 +65,4 @@ export {
   TOKEN_COSTS,
 } from './types';
 
-export type {
-  RustClientOptions,
-  RateLimiterOptions,
-  BroadcastEvents,
-  RustClientEvents,
-} from './types';
+export type * from './types';

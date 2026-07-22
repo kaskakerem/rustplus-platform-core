@@ -4,30 +4,72 @@
   "description": "Rust+ oyun sunuculari icin TypeScript SDK",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaskakerem/rustplus-platform-core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kaskakerem/rustplus-platform-core/issues"
+  },
+  "homepage": "https://github.com/kaskakerem/rustplus-platform-core#readme",
+  "keywords": [
+    "rust",
+    "rust-plus",
+    "companion",
+    "sdk",
+    "typescript",
+    "websocket",
+    "protobuf"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "npm run clean && tsc && node scripts/copy-proto.cjs",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:dist": "node scripts/verify-dist.cjs",
     "clean": "rimraf dist",
-    "check": "npm run build && npm test"
+    "check": "npm run build && npm test && npm run test:dist",
+    "prepublishOnly": "npm run check"
   },
   "dependencies": {
-    "@liamcottle/push-receiver": "^0.0.4",
-    "protobufjs": "^7.4.0",
+    "protobufjs": "^7.6.5",
     "ws": "^8.18.0"
+  },
+  "peerDependencies": {
+    "@liamcottle/push-receiver": "^0.0.4"
+  },
+  "peerDependenciesMeta": {
+    "@liamcottle/push-receiver": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^20.11.24",
     "@types/ws": "^8.5.12",
+    "@vitest/coverage-v8": "^4.1.10",
     "dotenv": "^16.4.5",
     "rimraf": "^5.0.5",
     "tsx": "^4.7.1",
     "typescript": "^5.5.3",
-    "vitest": "^1.3.1"
+    "vitest": "^4.1.10"
   },
   "files": [
-    "dist",
-    "src/proto/rustplus.proto"
+    "dist"
   ]
 }
