@@ -65,6 +65,8 @@ export class RustClient extends EventEmitter {
   private rateLimiter: RateLimiter;
   /** Broadcast event yöneticisi */
   private eventManager!: EventManager;
+  private managersInitialized: boolean = false;
+  private connectPromise: Promise<void> | null = null;
 
   /** İstemci seçenekleri */
   private options: Required<Pick<RustClientOptions, 'serverIp' | 'serverPort' | 'steamId' | 'playerToken'>> & RustClientOptions;
@@ -124,6 +126,7 @@ export class RustClient extends EventEmitter {
     });
 
     this.connection.on('connected', () => {
+      this.rateLimiter.start();
       this.emit('connected');
     });
 
@@ -163,34 +166,58 @@ export class RustClient extends EventEmitter {
    * ```
    */
   public async connect(): Promise<void> {
+    if (this.connection.isConnected()) {
+      return;
+    }
+
+    if (this.connectPromise) {
+      return this.connectPromise;
+    }
+
+    this.connectPromise = this.performConnect();
+
+    try {
+      await this.connectPromise;
+    } finally {
+      this.connectPromise = null;
+    }
+  }
+
+  private async performConnect(): Promise<void> {
     // 1. Protobuf şemasını yükle
     await this.protoLoader.load();
 
-    // 2. RequestManager oluştur (protobuf yüklendikten sonra)
-    this.requestManager = new RequestManager(
-      this.protoLoader,
-      this.connection,
-      this.rateLimiter,
-      this.options.steamId,
-      this.options.playerToken,
-      this.options.requestTimeout ?? this.config.defaultRequestTimeout
-    );
+    if (!this.managersInitialized) {
+      // 2. RequestManager oluştur (protobuf yüklendikten sonra)
+      this.requestManager = new RequestManager(
+        this.protoLoader,
+        this.connection,
+        this.rateLimiter,
+        this.options.steamId,
+        this.options.playerToken,
+        this.options.requestTimeout ?? this.config.defaultRequestTimeout
+      );
 
-    // 3. EventManager oluştur
-    this.eventManager = new EventManager(this, this.protoLoader);
+      // 3. EventManager oluştur
+      this.eventManager = new EventManager(this, this.protoLoader);
 
-    // 4. Connection'dan gelen broadcast mesajları EventManager'a yönlendir
-    this.connection.on('message', (data: Buffer) => {
-      this.eventManager.handleMessage(data);
-    });
+      // 4. Connection'dan gelen broadcast mesajları EventManager'a yönlendir
+      this.connection.on('message', (data: Buffer) => {
+        this.eventManager.handleMessage(data);
+      });
 
-    // 5. Rate limiter'ı başlat
-    this.rateLimiter.start();
+      this.managersInitialized = true;
+    }
 
-    // 6. WebSocket bağlantısını kur
-    await this.connection.connect();
+    // 5. WebSocket bağlantısını kur
+    try {
+      await this.connection.connect();
+    } catch (error) {
+      this.rateLimiter.stop();
+      throw error;
+    }
 
-    // 7. Bağlantıyı uyandır (Python SDK referansı: connect sonrası getTime çağrısı)
+    // 6. Bağlantıyı uyandır (Python SDK referansı: connect sonrası getTime çağrısı)
     try {
       await this.getTime();
     } catch {
@@ -662,6 +689,7 @@ export class RustClient extends EventEmitter {
 
     // 2. Event listener'ları temizle (eski connection'dan)
     this.connection.removeAllListeners();
+    this.managersInitialized = false;
 
     // 3. Yeni seçenekleri kaydet
     this.options = newOptions as any;

@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 vi.mock('ws', () => {
   const { EventEmitter } = require('events');
   class MockWebSocket extends EventEmitter {
+    public static CONNECTING = 0;
     public static OPEN = 1;
     public static CLOSED = 3;
     public url: string;
@@ -85,6 +86,93 @@ describe('Connection', () => {
 
     connection.disconnect();
     expect(connection.isConnected()).toBe(false);
+  });
+
+  it('eşzamanlı connect çağrılarında yalnızca bir WebSocket oluşturmalıdır', async () => {
+    const firstConnect = connection.connect();
+    const secondConnect = connection.connect();
+
+    await flushMicrotasks();
+
+    expect(versionProvider.getVersion).toHaveBeenCalledTimes(1);
+    const mockWs = (connection as any).ws;
+    mockWs.emit('open');
+
+    await Promise.all([firstConnect, secondConnect]);
+    expect(connection.isConnected()).toBe(true);
+  });
+
+  it('disconnect birden fazla kez çağrıldığında disconnected eventini tekrarlamamalıdır', async () => {
+    const disconnected = vi.fn();
+    connection.on('disconnected', disconnected);
+
+    const connectPromise = connection.connect();
+    await flushMicrotasks();
+    (connection as any).ws.emit('open');
+    await connectPromise;
+
+    connection.disconnect();
+    connection.disconnect();
+
+    expect(disconnected).toHaveBeenCalledTimes(1);
+  });
+
+  it('manuel disconnect sonrası yeniden bağlanınca auto-reconnect tekrar çalışmalıdır', async () => {
+    vi.useFakeTimers();
+    connection.on('error', () => {});
+
+    const firstConnect = connection.connect();
+    await flushMicrotasks();
+    (connection as any).ws.emit('open');
+    await firstConnect;
+    connection.disconnect();
+
+    const secondConnect = connection.connect();
+    await flushMicrotasks();
+    const secondSocket = (connection as any).ws;
+    secondSocket.emit('open');
+    await secondConnect;
+
+    const reconnecting = vi.fn();
+    connection.on('reconnecting', reconnecting);
+    secondSocket.emit('close');
+
+    expect(reconnecting).toHaveBeenCalledWith(1);
+    vi.useRealTimers();
+  });
+
+  it('başarısız bağlantıdan sonra WebSocket referansını temizlemelidir', async () => {
+    const noReconnectConnection = new Connection(
+      '127.0.0.1',
+      28082,
+      config,
+      versionProvider,
+      false,
+      false,
+      1000
+    );
+    noReconnectConnection.on('error', () => {});
+
+    const connectPromise = noReconnectConnection.connect();
+    connectPromise.catch(() => {});
+    await flushMicrotasks();
+    (noReconnectConnection as any).ws.emit('error', new Error('bağlantı hatası'));
+
+    await expect(connectPromise).rejects.toThrow('bağlantı hatası');
+    expect((noReconnectConnection as any).ws).toBeNull();
+    expect(noReconnectConnection.isConnected()).toBe(false);
+  });
+
+  it('bağlantı kurulurken disconnect çağrılırsa bekleyen connect işlemini iptal etmelidir', async () => {
+    const connectPromise = connection.connect();
+    connectPromise.catch(() => {});
+    await flushMicrotasks();
+
+    connection.disconnect();
+
+    await expect(connectPromise).rejects.toThrow('kullanıcı tarafından kapatıldı');
+    expect(connection.isConnected()).toBe(false);
+    expect((connection as any).ws).toBeNull();
   });
 
   it('bağlantı koptuğunda reconnect tetiklenmeli ve exponential backoff uygulamalıdır', async () => {

@@ -49,6 +49,9 @@ export class Connection extends EventEmitter {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private reconnectInterval: number;
   private maxReconnectInterval: number;
+  private connectPromise: Promise<void> | null = null;
+  private manuallyDisconnected: boolean = false;
+  private pendingConnectReject: ((error: Error) => void) | null = null;
 
   /**
    * @param serverIp Rust sunucu IP adresi
@@ -85,8 +88,24 @@ export class Connection extends EventEmitter {
    */
   public async connect(): Promise<void> {
     if (this.state === ConnectionState.CONNECTED) {
-      return; // Zaten bağlı
+      return;
     }
+
+    if (this.connectPromise) {
+      return this.connectPromise;
+    }
+
+    this.manuallyDisconnected = false;
+    this.connectPromise = this.performConnect();
+
+    try {
+      await this.connectPromise;
+    } finally {
+      this.connectPromise = null;
+    }
+  }
+
+  private async performConnect(): Promise<void> {
 
     this.state = ConnectionState.CONNECTING;
     this.emit('connecting');
@@ -110,9 +129,21 @@ export class Connection extends EventEmitter {
       const err = error instanceof Error ? error : new Error(String(error));
       this.emit('error', err);
       // Bağlantı başarısız olduğunda da otomatik reconnect döngüsünün devam etmesini sağla
+      this.cleanupFailedSocket();
       this.handleDisconnect();
       throw err;
     }
+  }
+
+  private cleanupFailedSocket(): void {
+    if (!this.ws) return;
+
+    const socket = this.ws;
+    socket.removeAllListeners();
+    if (socket.readyState !== WebSocket.CLOSED) {
+      socket.terminate();
+    }
+    this.ws = null;
   }
 
   /**
@@ -121,8 +152,11 @@ export class Connection extends EventEmitter {
    */
   private createWebSocket(url: string): Promise<void> {
     return new Promise<void>((resolve, reject) => {
+      let socket: WebSocket;
+
       try {
-        this.ws = new WebSocket(url);
+        socket = new WebSocket(url);
+        this.ws = socket;
       } catch (error) {
         reject(error);
         return;
@@ -131,6 +165,7 @@ export class Connection extends EventEmitter {
       const onOpen = () => {
         this.state = ConnectionState.CONNECTED;
         this.reconnectAttempt = 0;
+        this.pendingConnectReject = null;
         cleanup();
         this.setupListeners();
         this.emit('connected');
@@ -138,26 +173,31 @@ export class Connection extends EventEmitter {
       };
 
       const onError = (error: Error) => {
+        this.pendingConnectReject = null;
         cleanup();
         reject(error);
       };
 
       const onClose = () => {
+        this.pendingConnectReject = null;
         cleanup();
         reject(new Error('WebSocket bağlantısı hemen kapandı'));
       };
 
       const cleanup = () => {
-        if (this.ws) {
-          this.ws.removeListener('open', onOpen);
-          this.ws.removeListener('error', onError);
-          this.ws.removeListener('close', onClose);
-        }
+        socket.removeListener('open', onOpen);
+        socket.removeListener('error', onError);
+        socket.removeListener('close', onClose);
       };
 
-      this.ws.once('open', onOpen);
-      this.ws.once('error', onError);
-      this.ws.once('close', onClose);
+      socket.once('open', onOpen);
+      socket.once('error', onError);
+      socket.once('close', onClose);
+      this.pendingConnectReject = (error: Error) => {
+        this.pendingConnectReject = null;
+        cleanup();
+        reject(error);
+      };
     });
   }
 
@@ -193,7 +233,7 @@ export class Connection extends EventEmitter {
    * Exponential backoff kullanır.
    */
   private handleDisconnect(): void {
-    if (!this.autoReconnect) return;
+    if (!this.autoReconnect || this.manuallyDisconnected || this.reconnectTimer) return;
 
     this.reconnectAttempt++;
     
@@ -207,6 +247,7 @@ export class Connection extends EventEmitter {
     this.emit('reconnecting', this.reconnectAttempt);
 
     this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
       try {
         await this.connect();
       } catch (error) {
@@ -220,7 +261,12 @@ export class Connection extends EventEmitter {
    * Otomatik yeniden bağlanmayı da durdurur.
    */
   public disconnect(): void {
-    this.autoReconnect = false;
+    const shouldEmitDisconnected = this.state !== ConnectionState.DISCONNECTED || this.ws !== null;
+    this.manuallyDisconnected = true;
+
+    if (this.pendingConnectReject) {
+      this.pendingConnectReject(new Error('Bağlantı kullanıcı tarafından kapatıldı'));
+    }
 
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -239,7 +285,9 @@ export class Connection extends EventEmitter {
     }
 
     this.state = ConnectionState.DISCONNECTED;
-    this.emit('disconnected');
+    if (shouldEmitDisconnected) {
+      this.emit('disconnected');
+    }
   }
 
   /**

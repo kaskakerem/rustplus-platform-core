@@ -7,8 +7,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "jest",
-    "clean": "rimraf dist"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rimraf dist",
+    "check": "npm run build && npm test"
   },
   "dependencies": {
     "@liamcottle/push-receiver": "^0.0.4",
