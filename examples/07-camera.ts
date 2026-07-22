@@ -27,7 +27,7 @@ async function run() {
   const client = new RustClient({ serverIp, serverPort, steamId, playerToken });
 
   // Kamera ışın verilerini (ray data) dinle
-  client.on('cameraRays' as any, (rays: any) => {
+  client.on('cameraRays', (rays) => {
     console.log(`\n📹 [Kamera Canlı Veri] Fov: ${rays.verticalFov}, Mesafe: ${rays.distance}`);
     console.log(`   Algılanan Entity Sayısı: ${rays.entities?.length || 0}`);
   });

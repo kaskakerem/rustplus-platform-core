@@ -97,7 +97,7 @@ export interface PairingListenerEvents {
   /** Entity (cihaz) eşleştirme bildirimi geldiğinde */
   entityPaired: (data: EntityPairingData) => void;
   /** Alarm bildirimi geldiğinde */
-  alarm: (data: { title: string; message: string; body: any }) => void;
+  alarm: (data: { title: string; message: string; body: unknown }) => void;
   /** Bağlantı hatası */
   error: (error: Error) => void;
 }

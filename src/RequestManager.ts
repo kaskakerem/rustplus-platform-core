@@ -8,13 +8,14 @@ import { ProtoLoader } from './proto/ProtoLoader';
 import { Connection } from './Connection';
 import { RateLimiter } from './RateLimiter';
 import { TOKEN_COSTS } from './types';
+import type { AppResponse } from './types';
 
 /**
  * Bekleyen bir isteği temsil eder.
  */
 interface PendingRequest {
-  resolve: (value: any) => void;
-  reject: (reason: any) => void;
+  resolve: (value: AppResponse) => void;
+  reject: (reason: unknown) => void;
   timer: NodeJS.Timeout;
 }
 
@@ -73,7 +74,11 @@ export class RequestManager {
    * @returns Sunucu yanıtı (AppResponse)
    * @throws Zaman aşımı, bağlantı hatası veya sunucu hatası
    */
-  public async sendRequest(data: Record<string, any>, commandName?: string, timeout?: number): Promise<any> {
+  public async sendRequest<T extends AppResponse = AppResponse>(
+    data: Record<string, unknown>,
+    commandName?: string,
+    timeout?: number
+  ): Promise<T> {
     // Rate limit kontrolü
     const cost = commandName ? (TOKEN_COSTS[commandName] ?? 1) : 1;
     const hasTokens = await this.rateLimiter.waitForTokens(cost);
@@ -95,7 +100,7 @@ export class RequestManager {
     const encoded = this.protoLoader.encodeRequest(requestData);
 
     // Promise oluştur ve bekleyen istekler listesine ekle
-    return new Promise<any>((resolve, reject) => {
+    return new Promise<T>((resolve, reject) => {
       const timeoutMs = timeout ?? this.defaultTimeout;
 
       const timer = setTimeout(() => {
@@ -103,7 +108,11 @@ export class RequestManager {
         reject(new Error(`İstek zaman aşımı (seq: ${currentSeq}, ${timeoutMs}ms)`));
       }, timeoutMs);
 
-      this.pendingRequests.set(currentSeq, { resolve, reject, timer });
+      this.pendingRequests.set(currentSeq, {
+        resolve: resolve as (value: AppResponse) => void,
+        reject,
+        timer,
+      });
 
       // Mesajı gönder
       try {
@@ -123,7 +132,7 @@ export class RequestManager {
    * @param data AppRequest alan değerleri
    * @param commandName Komut adı (token maliyeti için)
    */
-  public async sendRequestNoResponse(data: Record<string, any>, commandName?: string): Promise<void> {
+  public async sendRequestNoResponse(data: Record<string, unknown>, commandName?: string): Promise<void> {
     const cost = commandName ? (TOKEN_COSTS[commandName] ?? 1) : 1;
     const hasTokens = await this.rateLimiter.waitForTokens(cost);
     if (!hasTokens) {
@@ -186,7 +195,7 @@ export class RequestManager {
    * @param data Sunucudan gelen binary veri
    * @returns Çözümlenmiş mesaj
    */
-  public decodeMessage(data: Buffer): any {
+  public decodeMessage(data: Buffer): import('./types').AppMessage {
     return this.protoLoader.decodeMessage(data);
   }
 

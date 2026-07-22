@@ -97,6 +97,72 @@ describe('EventManager', () => {
     expect(triggeredData.message).toBe('Selam takım!');
   });
 
+  it('clanChanged ve clanMessage paketlerini doğru eventlere yönlendirmelidir', () => {
+    const clanChanged = vi.fn();
+    const clanMessage = vi.fn();
+    emitter.on('clanChanged', clanChanged);
+    emitter.on('clanMessage', clanMessage);
+
+    const encodedChanged = protoLoader.encodeMessage({
+      broadcast: {
+        clanChanged: {
+          clanInfo: { clanId: '123', name: 'Test Clan', motd: 'Welcome' },
+        },
+      },
+    });
+    const encodedMessage = protoLoader.encodeMessage({
+      broadcast: {
+        clanMessage: {
+          clanId: '123',
+          message: { steamId: '456', name: 'Kerem', message: 'Selam', time: '1000' },
+        },
+      },
+    });
+
+    eventManager.handleMessage(Buffer.from(encodedChanged));
+    eventManager.handleMessage(Buffer.from(encodedMessage));
+
+    expect(clanChanged).toHaveBeenCalledWith(expect.objectContaining({
+      clanInfo: expect.objectContaining({ name: 'Test Clan' }),
+    }));
+    expect(clanMessage).toHaveBeenCalledWith(expect.objectContaining({
+      clanId: '123',
+      message: expect.objectContaining({ message: 'Selam' }),
+    }));
+  });
+
+  it('cameraRays paketini Buffer ve entity verileriyle yayınlamalıdır', () => {
+    const cameraRays = vi.fn();
+    emitter.on('cameraRays', cameraRays);
+
+    const encoded = protoLoader.encodeMessage({
+      broadcast: {
+        cameraRays: {
+          verticalFov: 60,
+          sampleOffset: 2,
+          rayData: Buffer.from([1, 2, 3]),
+          distance: 100,
+          timeOfDay: 12,
+          entities: [{
+            entityId: 7,
+            type: 'Player',
+            position: { x: 1, y: 2, z: 3 },
+            rotation: { x: 0, y: 0, z: 0 },
+            size: { x: 1, y: 2, z: 1 },
+            name: 'Player',
+          }],
+        },
+      },
+    });
+
+    eventManager.handleMessage(Buffer.from(encoded));
+
+    expect(cameraRays).toHaveBeenCalledWith(expect.objectContaining({
+      rayData: Buffer.from([1, 2, 3]),
+      entities: [expect.objectContaining({ entityId: 7, type: 'Player' })],
+    }));
+  });
+
   it('geçersiz protobuf verisi geldiğinde hata fırlatmak yerine error eventi fırlatmalı ve uygulamayı çökertmemelidir', () => {
     let errorTriggered = false;
     emitter.on('error', () => {

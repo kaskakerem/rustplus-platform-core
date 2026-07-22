@@ -6,6 +6,7 @@
 
 import * as protobuf from 'protobufjs';
 import * as path from 'path';
+import type { AppMessage } from '../types';
 
 /**
  * Protobuf mesaj tiplerini yükleyen ve encode/decode işlemlerini yöneten sınıf.
@@ -43,7 +44,7 @@ export class ProtoLoader {
    * @returns Encode edilmiş Uint8Array
    * @throws Proto yüklenmediyse hata fırlatır
    */
-  public encodeRequest(data: Record<string, any>): Uint8Array {
+  public encodeRequest(data: Record<string, unknown>): Uint8Array {
     if (!this.AppRequest) {
       throw new Error('ProtoLoader henüz yüklenmedi. Önce load() çağrın.');
     }
@@ -65,7 +66,7 @@ export class ProtoLoader {
    * @param data AppMessage alan değerlerini içeren nesne
    * @returns Encode edilmiş Uint8Array
    */
-  public encodeMessage(data: Record<string, any>): Uint8Array {
+  public encodeMessage(data: Record<string, unknown>): Uint8Array {
     if (!this.AppMessage) {
       throw new Error('ProtoLoader henüz yüklenmedi. Önce load() çağrın.');
     }
@@ -85,7 +86,7 @@ export class ProtoLoader {
    * @returns Çözümlenmiş AppMessage nesnesi
    * @throws Proto yüklenmediyse veya decode başarısız olursa hata fırlatır
    */
-  public decodeMessage(buffer: Uint8Array | Buffer): any {
+  public decodeMessage(buffer: Uint8Array | Buffer): AppMessage {
     if (!this.AppMessage) {
       throw new Error('ProtoLoader henüz yüklenmedi. Önce load() çağrın.');
     }
@@ -96,7 +97,7 @@ export class ProtoLoader {
       enums: String,
       bytes: Buffer,
       defaults: true,
-    });
+    }) as AppMessage;
   }
 
   /**

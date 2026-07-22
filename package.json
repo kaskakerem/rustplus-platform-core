@@ -5,12 +5,13 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-proto.cjs",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:dist": "node scripts/verify-dist.cjs",
     "clean": "rimraf dist",
-    "check": "npm run build && npm test"
+    "check": "npm run build && npm test && npm run test:dist"
   },
   "dependencies": {
     "@liamcottle/push-receiver": "^0.0.4",
