@@ -1,0 +1,31 @@
+{
+  "name": "@rustplus-platform/core",
+  "version": "1.0.0",
+  "description": "Rust+ oyun sunuculari icin TypeScript SDK",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@liamcottle/push-receiver": "^0.0.4",
+    "protobufjs": "^7.4.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@types/ws": "^8.5.12",
+    "dotenv": "^16.4.5",
+    "rimraf": "^5.0.5",
+    "tsx": "^4.7.1",
+    "typescript": "^5.5.3",
+    "vitest": "^1.3.1"
+  },
+  "files": [
+    "dist",
+    "src/proto/rustplus.proto"
+  ]
+}
