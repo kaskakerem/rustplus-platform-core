@@ -158,7 +158,7 @@ describe('EventManager', () => {
     eventManager.handleMessage(Buffer.from(encoded));
 
     expect(cameraRays).toHaveBeenCalledWith(expect.objectContaining({
-      rayData: Buffer.from([1, 2, 3]),
+      rayData: new Uint8Array([1, 2, 3]),
       entities: [expect.objectContaining({ entityId: 7, type: 'Player' })],
     }));
   });

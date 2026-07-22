@@ -149,7 +149,7 @@ export interface MapMonument {
 export interface MapData {
   width: number;
   height: number;
-  jpgImage: Buffer;
+  jpgImage: Uint8Array;
   oceanMargin: number;
   monuments: MapMonument[];
   background: string;
@@ -282,7 +282,7 @@ export interface ClanInfo {
   motd: string;
   motdTimestamp: string;
   motdAuthor: string;
-  logo: Buffer;
+  logo: Uint8Array;
   color: number;
   roles: ClanRole[];
   members: ClanMember[];
@@ -327,7 +327,7 @@ export interface CameraEntity {
 export interface CameraRays {
   verticalFov: number;
   sampleOffset: number;
-  rayData: Buffer;
+  rayData: Uint8Array;
   distance: number;
   entities: CameraEntity[];
   timeOfDay: number;
